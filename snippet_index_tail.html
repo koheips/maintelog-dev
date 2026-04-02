@@ -1,0 +1,9 @@
+<!-- 更新のたびに v= の値を変更 -->
+<script src="app.js?v=v17-20260401"></script>
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./sw.js?v=v17-20260401").catch(() => {});
+    });
+  }
+</script>
