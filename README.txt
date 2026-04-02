@@ -1,74 +1,37 @@
-適用手順
-1 ZIPを展開
-2 GitHub の Code タブで index.html を開く
-3 Edit で全文を置換して Commit changes
-4 同様に app.js / manifest.json / sw.js を全文置換して Commit changes
-5 snippet_index_tail.html は index.html の末尾差し替え参考用
+【テスト環境用】maintelog v18-dev-20260402
 
-重要
-・ localStorage の削除はしない
-・ 反映確認は PCブラウザで 先に行う
-・ 変更後は Safari で通常表示を確認してから ホーム画面追加アプリで確認
+適用先
+　https://koheips.github.io/maintelog-dev/
 
-反映確認
-・ https://koheips.github.io/maintelog-v16/?v=v17-20260401
-・ 履歴カードに「編集」ボタン（青色）が表示されること
-・ 作業内容マスターに ⠿ ドラッグハンドルが表示されること
-・ カラーピッカーに白い円枠が表示されること（黒背景での視認性）
+ファイル構成（このZIPに含まれるもの）
+　index.html        メインHTML（全CSS含む）
+　app.js            アプリロジック
+　sw.js             Service Worker
+　manifest.json     PWA設定
+　apple-touch-icon.png  ホーム画面アイコン
+　README.txt        本ファイル
 
-【重要】GitHub Pages キャッシュが残っている場合の対処
-PCブラウザで反映されない場合:
-  1. Ctrl+Shift+R（Mac: Cmd+Shift+R）でスーパーリロード
-  2. または DevTools > Application > Storage > Clear site data
+※ icon-192.png / icon-512.png は既存リポジトリからコピーしてください
 
-iPhoneホーム画面アプリで反映されない場合:
-  1. アプリスイッチャーでアプリを完全終了
-  2. Safariで ?v=v17-20260401 付きURLにアクセス
-  3. 再度ホーム画面に追加し直す
+v18 新機能
+・3タブ構成（入力 / 履歴 / 設定）
+  - 設定タブ：作業追加・マスター管理・区分管理・データ・アプリ名を集約
+・推奨作業
+  - 入力タブ最上部に移動
+  - 要対応（期限超過・70%以上経過）のみ表示、全て余裕ありなら非表示
+  - 次回予定日を自動計算して表示
+  - トリガー種別：「経過日数」と「累計滞在日数」を作業ごとに個別設定
+  - 累計滞在日数トリガー：「累計 4日 / 5日」形式で表示
+・「泊数」→「滞在日数」に名称変更
+・履歴：縦タイムライン形式（横スライド廃止）
+  - 区分ごとの色つきpillで識別
+  - 行タップで編集・削除ボタンが展開（常時表示をやめてスッキリ）
+・UIフラット化
+  - セグメントコントロール（iOSスタイルタブ）
+  - ボーダーレス入力フィールド
+  - モーダルが下からシート型で表示
+  - 保存ボタンを大型化・全幅に
 
-v16c 追加変更内容
-・ 動的CSS注入（ensureDynamicStylesV5）を完全廃止
-  → 全スタイルをindex.htmlの<style>に一元統合（反映確実性を向上）
-・ localStorage 超過を try-catch で捕捉しユーザーに警告
-・ JSON インポート時のスキーマ検証を強化
-・ 記録IDをcrypto.randomUUID()に変更
-・ tasksByCat のハードコード区分を除去（区分マスター連動）
-・ 推奨作業 .recoItem スタイルを正式定義
-・ 履歴リストに「編集」ボタン追加（日付・泊数・作業・メモを修正可能）
-・ カラーピッカーに白枠+多重シャドウを追加（黒背景での視認性向上）
-・ カラーピッカー横にリアルタイムプレビューpillを追加
-・ 作業内容マスターの並び替えをドラッグ＆ドロップ（PC）＋タッチ（iPhone）に変更
-・ Service Workerをstale-while-revalidateに変更
-・ フッタに著作権表記を追加（©Kohei Sekine (2026)）
-
-・ 区分マスターの上下移動をドラッグ&ドロップ（PC）＋タッチ（iPhone）に変更（上へ/下へボタン廃止）
-
-【v17 キャッシュ完全クリア手順】━━━━━━━━━━━━━━━━━━━━
-
-★ GitHub へのアップロード後、必ず以下の手順でキャッシュをクリアしてください ★
-
-── PCブラウザ（Chrome推奨）──
-1. DevTools を開く（F12 または Cmd+Option+I）
-2. Application タブ → Storage → 「Clear site data」ボタンをクリック
-3. Application タブ → Service Workers → 登録済みSWの「Unregister」をクリック
-4. ページを通常リロード（F5）
-
-または：アドレスバーにURLを入力して ?nocache=1 を末尾に付けてアクセス
-例: https://koheips.github.io/maintelog-v16/?nocache=1
-
-── iPhone Safari ──
-1. 設定アプリ → Safari → 「履歴とWebサイトデータを消去」
-2. Safari でURLに ?v=v17-20260401 を付けてアクセス
-   例: https://koheips.github.io/maintelog-v16/?v=v17-20260401
-3. ホーム画面のアイコンからではなく Safari から直接アクセスすること
-4. 問題が続く場合: ホーム画面のアイコンを長押し → 削除 → Safari から再度「ホームに追加」
-
-── GitHub Pages のキャッシュ ──
-・GitHub Pages 自体に10分程度のキャッシュがあります
-・コミット後すぐ反映されない場合は10分待ってからリロードしてください
-
-v17 変更内容
-・区分マスターの上下移動をドラッグ&ドロップ（PC）＋タッチ（iPhone）に変更
-・Service Worker を Network First 戦略に変更（キャッシュ問題を根本解決）
-・旧キャッシュを activate 時に全削除するよう変更
-・index.html に no-cache メタタグを追加
+キャッシュクリア手順（反映されない場合）
+Chrome: F12 → Application → Storage → Clear site data
+iPhone: 設定 → Safari → 履歴とWebサイトデータを消去
