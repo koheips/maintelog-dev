@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
-  <link rel="manifest" href="manifest.json?v=v18-dev-20260402">
+  <link rel="manifest" href="manifest.json?v=v18b-dev-20260402">
   <title>メンテログ</title>
   <style>
     :root {
@@ -71,12 +71,16 @@
       color:rgba(255,120,110,.9); text-transform:uppercase; margin-bottom:8px;
     }
     .reco-row {
-      display:flex; justify-content:space-between; align-items:center;
-      padding:6px 0; border-bottom:0.5px solid rgba(255,69,58,.12);
+      display:flex; justify-content:space-between; align-items:flex-start;
+      padding:7px 0; border-bottom:0.5px solid rgba(255,69,58,.12); gap:8px;
     }
     .reco-row:last-child { border-bottom:none; }
     .reco-row-name { font-size:14px; color:var(--text); }
-    .reco-row-right { display:flex; align-items:center; gap:8px; }
+    .reco-row-right {
+      display:flex; flex-wrap:wrap; justify-content:flex-end;
+      align-items:center; gap:4px 8px; flex-shrink:0; max-width:60%;
+    }
+    .reco-date-sub { font-size:10px; color:#8e8e93; width:100%; text-align:right; margin-top:1px; }
     .reco-row-date { font-size:11px; color:var(--text3); white-space:nowrap; }
     .reco-badge {
       font-size:11px; padding:2px 9px; border-radius:999px; white-space:nowrap; font-weight:500;
@@ -87,8 +91,8 @@
     /* ── カードブロック ── */
     .block { margin:12px 20px 0; }
     .block-label {
-      font-size:12px; color:var(--text3); font-weight:500;
-      letter-spacing:.04em; margin-bottom:6px; padding-left:4px;
+      font-size:12px; color:#e5e5ea; font-weight:600;
+      letter-spacing:.06em; margin-bottom:6px; padding-left:4px; text-transform:uppercase;
     }
     .card {
       background:var(--panel); border-radius:var(--radius);
@@ -243,8 +247,8 @@
     /* ── 設定タブ ── */
     .setting-group { margin:12px 20px 0; }
     .setting-group-label {
-      font-size:12px; color:var(--text3); font-weight:500;
-      letter-spacing:.04em; margin-bottom:6px; padding-left:4px;
+      font-size:12px; color:#e5e5ea; font-weight:600;
+      letter-spacing:.06em; margin-bottom:6px; padding-left:4px; text-transform:uppercase;
     }
     .setting-note { font-size:12px; color:var(--text3); padding:8px 4px 0; line-height:1.6; }
 
@@ -296,6 +300,19 @@
     }
     .modal-btn-cancel { background:var(--panel2); color:var(--text2); }
     .modal-btn-ok     { background:var(--accent); color:#fff; }
+
+
+    /* ── 保存トースト ── */
+    .save-toast {
+      display:flex; align-items:center; gap:8px;
+      background:rgba(48,209,88,0.14);
+      border:0.5px solid rgba(48,209,88,0.40);
+      border-radius:10px; padding:10px 14px;
+      font-size:13px; color:#30d158;
+      margin-top:8px;
+      animation:toastIn .2s ease;
+    }
+    @keyframes toastIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
 
     /* ── フッタ ── */
     .footer {
@@ -493,6 +510,18 @@
       </div>
     </div>
 
+    <!-- メモ文字色 -->
+    <div class="setting-group" style="margin-top:20px;">
+      <div class="setting-group-label">メモ表示色</div>
+      <div class="card">
+        <div class="field" style="border-bottom:none;">
+          <span class="field-label">履歴メモの文字色</span>
+          <input id="memoColorPicker" type="color" value="#d1d1d6">
+        </div>
+      </div>
+      <div class="setting-note" style="font-size:11px;color:#8e8e93;padding:6px 4px 0;line-height:1.6;">履歴画面のメモ（その他テキスト）の表示色を変更します</div>
+    </div>
+
     <div class="footer">
       <div>©Kohei Sekine (2026)</div>
       <div>本アプリの無断転載・複製・改変等を禁じます</div>
@@ -514,11 +543,11 @@
   </div>
 </div>
 
-<script src="app.js?v=v18-dev-20260402"></script>
+<script src="app.js?v=v18b-dev-20260402"></script>
 <script>
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=v18-dev-20260402").catch(() => {});
+      navigator.serviceWorker.register("./sw.js?v=v18b-dev-20260402").catch(() => {});
     });
   }
 </script>

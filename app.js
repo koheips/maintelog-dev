@@ -1,4 +1,4 @@
-/* メンテログ app.js v18-dev-20260402
+/* メンテログ app.js v18b-dev-20260402
    主な変更点
    ・3タブ構成（入力／履歴／設定）
    ・推奨作業：要対応のみ入力タブ最上部に表示
@@ -8,7 +8,7 @@
    ・全体UIフラット化
 */
 
-const BUILD_ID = "v18-dev-20260402";
+const BUILD_ID = "v18b-dev-20260402";
 console.info("[maintelog] build", BUILD_ID);
 
 const STORAGE_KEY = "maintelog_rows_v2";
@@ -352,20 +352,36 @@ function renderReco() {
         badge.classList.add("reco-badge-amber");
       }
     } else {
-      const lastTxt = t.last ? formatJP(t.last) : "未実施";
-      const nextTxt = t.nextDate ? `　次回 ${t.nextDate}` : "";
-      dateEl.textContent = `前回 ${lastTxt}${nextTxt}`;
+      // 年を下2桁で短縮
+      const fmtShort = iso => {
+        if (!iso) return "";
+        const [y,m,d] = iso.split("-");
+        return `${String(y).slice(2)}/${m}/${d}`;
+      };
+      // バッジ
       if (t.due) {
         badge.textContent = `+${t.over}日超過`;
         badge.classList.add("reco-badge-red");
       } else {
-        const remaining = t.freqDays - (t.elapsed || 0);
-        badge.textContent = `あと${remaining}日`;
+        badge.textContent = `あと${t.freqDays - (t.elapsed||0)}日`;
         badge.classList.add("reco-badge-amber");
       }
+      // 前回・次回を独立要素で追加（flex-wrap で自動折り返し）
+      const lastSpan = document.createElement("span");
+      lastSpan.className = "reco-row-date reco-date-sub";
+      lastSpan.textContent = t.last ? `前回 ${fmtShort(t.last)}` : "前回 未実施";
+      const nextSpan = t.nextDate ? document.createElement("span") : null;
+      if (nextSpan) {
+        nextSpan.className = "reco-row-date reco-date-sub";
+        nextSpan.textContent = `次回 ${fmtShort(t.nextDate)}`;
+      }
+      // dateEl は非表示にして right に直接追加
+      dateEl.style.display = "none";
     }
 
-    right.appendChild(dateEl); right.appendChild(badge);
+    right.appendChild(badge);
+    right.appendChild(lastSpan);
+    if (nextSpan) right.appendChild(nextSpan);
     row.appendChild(name); row.appendChild(right);
     list.appendChild(row);
   });
@@ -530,22 +546,33 @@ function renderMaster() {
     const handle = document.createElement("span"); handle.className = "drag-handle"; handle.textContent = "⠿";
 
     const info = document.createElement("div"); info.className = "master-info";
-    const nameEl = document.createElement("div"); nameEl.className = "master-name"; nameEl.textContent = t.name;
+
+    // ⑦ 作業名をpill形式で表示（設定色を反映）
+    const nameEl = document.createElement("div"); nameEl.className = "master-name";
+    nameEl.style.cssText = `display:inline-block;padding:3px 12px;border-radius:999px;font-size:13px;font-weight:500;background:${t.bg||"#1c1c1e"};color:${t.text||"#f2f2f7"};border:1px solid ${t.bg&&t.bg!=="0f0f0f"?t.bg:"rgba(255,255,255,.15)"};`;
+    nameEl.textContent = t.name;
+
+    // ⑥ 区分を色付きbadgeで表示
     const metaEl = document.createElement("div"); metaEl.className = "master-meta";
+    metaEl.style.marginTop = "5px";
+    const catCC = catColor(t.cat);
+    const catBadge = document.createElement("span");
+    catBadge.style.cssText = `font-size:10px;padding:2px 8px;border-radius:999px;background:${catCC.bg};color:${catCC.color};font-weight:500;`;
+    catBadge.textContent = t.cat;
     const triggerLabel = t.triggerType === "nights" ? "累計滞在日数" : "経過日数";
     const freqLabel = t.freqDays ? `${triggerLabel} ${t.freqDays}日` : "頻度未設定";
-    metaEl.textContent = `${t.cat}　${freqLabel}`;
+    const freqSpan = document.createElement("span");
+    freqSpan.style.cssText = "font-size:11px;color:#8e8e93;margin-left:6px;";
+    freqSpan.textContent = freqLabel;
+    metaEl.appendChild(catBadge); metaEl.appendChild(freqSpan);
     info.appendChild(nameEl); info.appendChild(metaEl);
 
-    // カラープレビュー
-    const preview = document.createElement("div"); preview.className = "master-color-preview";
-    preview.style.background = t.bg || "#0f0f0f";
-    preview.title = `背景:${t.bg} 文字:${t.text}`;
+    // ⑤ 黒丸廃止（カラープレビュー不要 → pill に統合済み）
 
     const editBtn = document.createElement("button"); editBtn.className = "master-btn"; editBtn.textContent = "編集";
     const delBtn  = document.createElement("button"); delBtn.className  = "master-btn danger"; delBtn.textContent = "削除";
 
-    div.appendChild(handle); div.appendChild(info); div.appendChild(preview); div.appendChild(editBtn); div.appendChild(delBtn);
+    div.appendChild(handle); div.appendChild(info); div.appendChild(editBtn); div.appendChild(delBtn);
     box.appendChild(div);
 
     /* ドラッグ（PC） */
@@ -794,6 +821,9 @@ function boot() {
   $("date").value = todayISO();
   applyAppName(); renderStatus();
   renderTaskChips(); renderMaster(); renderReco(); renderHistory();
+  // メモ文字色ピッカー初期値
+  const mcp = $("memoColorPicker");
+  if (mcp) mcp.value = loadMemoColor();
   setView("Input");
 }
 
@@ -825,6 +855,10 @@ bindIf("export", "click", () => exportJSON());
 bindIf("import", "change", e => { const f = e.target.files && e.target.files[0]; if (!f) return; importJSON(f); e.target.value = ""; });
 bindIf("saveAppName",  "click", () => { saveAppName($("appName").value); applyAppName(); showAlert("確認","保存完了"); });
 bindIf("resetAppName", "click", () => { localStorage.removeItem(APPNAME_KEY); applyAppName(); });
+bindIf("memoColorPicker", "input", (e) => {
+  saveMemoColor(e.target.value);
+  renderHistory();
+});
 
 setupCollapse("masterToggle", "masterBody");
 setupCollapse("catToggle",    "catBody");
