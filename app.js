@@ -1,4 +1,4 @@
-/* メンテログ app.js v18b-dev-20260402
+/* メンテログ app.js v18c-dev-20260402
    主な変更点
    ・3タブ構成（入力／履歴／設定）
    ・推奨作業：要対応のみ入力タブ最上部に表示
@@ -8,8 +8,24 @@
    ・全体UIフラット化
 */
 
-const BUILD_ID = "v18b-dev-20260402";
+const BUILD_ID = "v18c-dev-20260402";
 console.info("[maintelog] build", BUILD_ID);
+
+/* ── カラーパレット（グリッド用） ── */
+const COLOR_PALETTE = [
+  // ダーク系背景
+  "#0f0f0f","#1c1c1e","#2c2c2e","#1a1a2e","#0d1b2a","#1a2a1a",
+  // 有彩色背景
+  "#1a3a6a","#0a3a2a","#3a1a0a","#2a0a3a","#3a0a1a","#1a2a3a",
+  "#0f2744","#0f3320","#3d1a00","#280040","#400020","#003040",
+  // テキスト（明るい系）
+  "#ffffff","#f2f2f7","#e5e5ea","#d1d1d6","#aeaeb2","#8e8e93",
+  // アクセント
+  "#2f7cf6","#30d158","#ffd60a","#ff9f0a","#ff453a","#bf5af2",
+  "#64d2ff","#5e5ce6","#ff6b6b","#ffa500","#00c896","#ff2d55",
+];
+
+
 
 const STORAGE_KEY = "maintelog_rows_v2";
 const TASKS_KEY   = "maintelog_tasks_v2";
@@ -126,6 +142,55 @@ function daysBetween(a, b) {
   const ms = new Date(`${b}T00:00:00`) - new Date(`${a}T00:00:00`);
   return Number.isFinite(ms) ? Math.floor(ms / 86400000) : null;
 }
+
+/* ── カラーグリッドUI ── */
+function createColorGrid(currentColor, onChange, opts) {
+  // opts: { hiddenInputId }
+  const wrap = document.createElement("div");
+
+  const grid = document.createElement("div");
+  grid.className = "color-grid";
+
+  const swatches = [];
+  const updateSelected = (hex) => {
+    swatches.forEach(sw => sw.classList.toggle("selected", sw.dataset.color === hex));
+  };
+
+  COLOR_PALETTE.forEach(hex => {
+    const sw = document.createElement("div");
+    sw.className = "color-swatch";
+    sw.dataset.color = hex;
+    sw.style.background = hex;
+    if (hex === currentColor) sw.classList.add("selected");
+    sw.addEventListener("click", () => {
+      updateSelected(hex);
+      onChange(hex);
+    });
+    swatches.push(sw);
+    grid.appendChild(sw);
+  });
+
+  // カスタム色ボタン（ネイティブピッカー呼び出し）
+  const customBtn = document.createElement("label");
+  customBtn.className = "color-swatch-custom";
+  customBtn.title = "カスタム色";
+  customBtn.textContent = "+";
+  const hiddenInp = document.createElement("input");
+  hiddenInp.type = "color";
+  hiddenInp.value = currentColor || "#ffffff";
+  if (opts && opts.hiddenInputId) hiddenInp.id = opts.hiddenInputId;
+  hiddenInp.addEventListener("input", () => {
+    const hex = hiddenInp.value;
+    updateSelected(hex);
+    onChange(hex);
+  });
+  customBtn.appendChild(hiddenInp);
+  grid.appendChild(customBtn);
+
+  wrap.appendChild(grid);
+  return { el: wrap, update: updateSelected };
+}
+
 function genId() {
   return (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID()
     : `${Date.now()}_${Math.random().toString(16).slice(2)}`;
@@ -342,8 +407,19 @@ function renderReco() {
     const dateEl = document.createElement("span"); dateEl.className = "reco-row-date";
     const badge  = document.createElement("span"); badge.className = "reco-badge";
 
+    // 年を下2桁で短縮
+    const fmtShort = iso => {
+      if (!iso) return "";
+      const [y,m,d] = iso.split("-");
+      return `${String(y).slice(2)}/${m}/${d}`;
+    };
+    // lastSpan / nextSpan を常にスコープ内で宣言（スコープバグ修正）
+    const lastSpan = document.createElement("span");
+    lastSpan.className = "reco-row-date reco-date-sub";
+    let nextSpan = null;
+
     if (t.isNightsTrigger) {
-      dateEl.textContent = `累計 ${t.cumNights}日 / ${t.freqDays}日`;
+      // 累計滞在日数トリガー
       if (t.due) {
         badge.textContent = `+${t.cumNights - t.freqDays}日超過`;
         badge.classList.add("reco-badge-red");
@@ -351,14 +427,9 @@ function renderReco() {
         badge.textContent = `あと${t.freqDays - t.cumNights}日`;
         badge.classList.add("reco-badge-amber");
       }
+      lastSpan.textContent = `累計 ${t.cumNights}日 / ${t.freqDays}日`;
     } else {
-      // 年を下2桁で短縮
-      const fmtShort = iso => {
-        if (!iso) return "";
-        const [y,m,d] = iso.split("-");
-        return `${String(y).slice(2)}/${m}/${d}`;
-      };
-      // バッジ
+      // 経過日数トリガー
       if (t.due) {
         badge.textContent = `+${t.over}日超過`;
         badge.classList.add("reco-badge-red");
@@ -366,18 +437,14 @@ function renderReco() {
         badge.textContent = `あと${t.freqDays - (t.elapsed||0)}日`;
         badge.classList.add("reco-badge-amber");
       }
-      // 前回・次回を独立要素で追加（flex-wrap で自動折り返し）
-      const lastSpan = document.createElement("span");
-      lastSpan.className = "reco-row-date reco-date-sub";
       lastSpan.textContent = t.last ? `前回 ${fmtShort(t.last)}` : "前回 未実施";
-      const nextSpan = t.nextDate ? document.createElement("span") : null;
-      if (nextSpan) {
+      if (t.nextDate) {
+        nextSpan = document.createElement("span");
         nextSpan.className = "reco-row-date reco-date-sub";
         nextSpan.textContent = `次回 ${fmtShort(t.nextDate)}`;
       }
-      // dateEl は非表示にして right に直接追加
-      dateEl.style.display = "none";
     }
+    dateEl.style.display = "none";
 
     right.appendChild(badge);
     right.appendChild(lastSpan);
@@ -555,16 +622,18 @@ function renderMaster() {
     // ⑥ 区分を色付きbadgeで表示
     const metaEl = document.createElement("div"); metaEl.className = "master-meta";
     metaEl.style.marginTop = "5px";
-    const catCC = catColor(t.cat);
     const catBadge = document.createElement("span");
-    catBadge.style.cssText = `font-size:10px;padding:2px 8px;border-radius:999px;background:${catCC.bg};color:${catCC.color};font-weight:500;`;
+    catBadge.style.cssText = "font-size:11px;padding:2px 8px;border-radius:999px;background:rgba(255,255,255,.1);color:#e5e5ea;font-weight:500;";
     catBadge.textContent = t.cat;
-    const triggerLabel = t.triggerType === "nights" ? "累計滞在日数" : "経過日数";
-    const freqLabel = t.freqDays ? `${triggerLabel} ${t.freqDays}日` : "頻度未設定";
-    const freqSpan = document.createElement("span");
-    freqSpan.style.cssText = "font-size:11px;color:#8e8e93;margin-left:6px;";
-    freqSpan.textContent = freqLabel;
-    metaEl.appendChild(catBadge); metaEl.appendChild(freqSpan);
+
+    metaEl.appendChild(catBadge);
+    if (t.freqDays && t.freqDays > 0) {
+      const freqSpan = document.createElement("span");
+      freqSpan.style.cssText = "font-size:11px;color:#aeaeb2;margin-left:6px;";
+      const triggerLabel = t.triggerType === "nights" ? "累計滞在" : "経過";
+      freqSpan.textContent = `${triggerLabel} ${t.freqDays}日`;
+      metaEl.appendChild(freqSpan);
+    }
     info.appendChild(nameEl); info.appendChild(metaEl);
 
     // ⑤ 黒丸廃止（カラープレビュー不要 → pill に統合済み）
@@ -637,21 +706,40 @@ function renderMaster() {
         }
         el.id = f.id; fw.appendChild(el); wrap.appendChild(fw);
       });
-      // 色設定
+      // 色設定（カラーグリッド）
+      let currentBg   = clampColor(tgt.bg,   "#0f0f0f");
+      let currentText = clampColor(tgt.text,  "#f0f0f0");
+
       const cw = document.createElement("div"); cw.className = "modal-field";
-      cw.innerHTML = `<label>色設定</label>`;
-      const crow = document.createElement("div"); crow.style.cssText = "display:flex;gap:14px;align-items:center;flex-wrap:wrap;";
-      const bgLabel = document.createElement("span"); bgLabel.textContent = "背景"; bgLabel.style.cssText = "font-size:12px;color:var(--text3);";
-      const bgInp = document.createElement("input"); bgInp.type = "color"; bgInp.value = clampColor(tgt.bg,"#0f0f0f");
-      const txLabel = document.createElement("span"); txLabel.textContent = "文字"; txLabel.style.cssText = "font-size:12px;color:var(--text3);";
-      const txInp = document.createElement("input"); txInp.type = "color"; txInp.value = clampColor(tgt.text,"#f0f0f0");
-      const prev = document.createElement("span");
-      prev.style.cssText = `font-size:12px;padding:4px 12px;border-radius:999px;background:${tgt.bg};color:${tgt.text};`;
+      const clabel = document.createElement("label"); clabel.textContent = "色設定"; cw.appendChild(clabel);
+
+      // プレビューpill
+      const prev = document.createElement("div");
+      prev.className = "color-preview-pill";
+      prev.style.background = currentBg; prev.style.color = currentText;
       prev.textContent = tgt.name;
-      bgInp.addEventListener("input", () => { prev.style.background = bgInp.value; });
-      txInp.addEventListener("input", () => { prev.style.color = txInp.value; });
-      crow.appendChild(bgLabel); crow.appendChild(bgInp); crow.appendChild(txLabel); crow.appendChild(txInp); crow.appendChild(prev);
-      cw.appendChild(crow); wrap.appendChild(cw);
+      prev.style.marginBottom = "10px";
+      cw.appendChild(prev);
+
+      // 背景色グリッド
+      const bgLbl = document.createElement("div"); bgLbl.style.cssText="font-size:11px;color:#8e8e93;margin-bottom:6px;"; bgLbl.textContent="背景色";
+      cw.appendChild(bgLbl);
+      const bgGrid = createColorGrid(currentBg, hex => {
+        currentBg = hex; bgInp.value = hex; prev.style.background = hex;
+      }, { hiddenInputId: "editBgHidden" });
+      // hidden inputへの参照を作成
+      const bgInp = document.createElement("input"); bgInp.type="hidden"; bgInp.id="editBgHidden"; bgInp.value=currentBg;
+      cw.appendChild(bgGrid.el); cw.appendChild(bgInp);
+
+      // 文字色グリッド
+      const txLbl = document.createElement("div"); txLbl.style.cssText="font-size:11px;color:#8e8e93;margin:10px 0 6px;"; txLbl.textContent="文字色";
+      cw.appendChild(txLbl);
+      const txGrid = createColorGrid(currentText, hex => {
+        currentText = hex; txInp.value = hex; prev.style.color = hex;
+      }, { hiddenInputId: "editTxHidden" });
+      const txInp = document.createElement("input"); txInp.type="hidden"; txInp.id="editTxHidden"; txInp.value=currentText;
+      cw.appendChild(txGrid.el); cw.appendChild(txInp);
+      wrap.appendChild(cw);
 
       openModal({ title:"項目を編集", bodyNodes:[wrap], okText:"保存",
         onOk: () => {
@@ -661,7 +749,7 @@ function renderMaster() {
           const fd = normalizeIntOrNull(String($("efreq").value ?? "").trim());
           if (ts.find((x,i) => i !== idx && x.name === nm)) { showAlert("確認","同名が既に存在"); return; }
           ts[idx] = { ...tgt, name:nm, cat:ct, triggerType:tr, freqDays:fd,
-            bg:clampColor(bgInp.value,"#0f0f0f"), text:clampColor(txInp.value,"#f0f0f0") };
+            bg:clampColor(currentBg,"#0f0f0f"), text:clampColor(currentText,"#f0f0f0") };
           saveTasks(ts); renderTaskChips(); renderMaster(); renderReco();
         }
       });
@@ -691,8 +779,10 @@ function addTaskFromInputs() {
   tasks.push({ name, cat:ct, triggerType:tr, freqDays:fd, bg, text });
   saveTasks(tasks);
   $("newTask").value = ""; $("newFreq").value = "";
-  $("newBg").value = "#0f0f0f"; $("newText").value = "#f0f0f0";
   if ($("newTrigger")) $("newTrigger").value = "days";
+  // カラーグリッドリセット
+  if (window._bgGridReset) window._bgGridReset();
+  if (window._txGridReset) window._txGridReset();
   renderTaskChips(); renderMaster(); renderReco();
 }
 
@@ -709,7 +799,7 @@ function setupCatMaster() {
       const r = document.createElement("div"); r.className = "master-item"; r.draggable = true; r.dataset.idx = idx;
       const handle = document.createElement("span"); handle.className = "drag-handle"; handle.textContent = "⠿";
       const nameEl = document.createElement("div"); nameEl.className = "master-info";
-      nameEl.innerHTML = `<div class="master-name">${escapeHtml(c)}</div>`;
+      nameEl.innerHTML = `<div class="master-name" style="color:#f2f2f7;font-size:15px;">${escapeHtml(c)}</div>`;
       const dl = document.createElement("button"); dl.className = "master-btn danger"; dl.textContent = "削除";
       dl.addEventListener("click", () => {
         const cn = getCats(); if (cn.length <= 1) { showAlert("確認","区分は最低1つ必要"); return; }
@@ -776,6 +866,36 @@ function setupCollapse(btnId, bodyId) {
   });
 }
 
+
+/* ── 作業追加フォームのカラーグリッド初期化 ── */
+function setupNewTaskColorGrids() {
+  const bgArea = document.getElementById("newBgGridArea");
+  const txArea = document.getElementById("newTextGridArea");
+  if (!bgArea || !txArea) return;
+
+  let bgVal = "#0f0f0f", txVal = "#f0f0f0";
+
+  // hidden input を用意（addTaskFromInputs で参照）
+  let bgHidden = document.getElementById("newBg");
+  let txHidden = document.getElementById("newText");
+  if (!bgHidden) { bgHidden = document.createElement("input"); bgHidden.type="hidden"; bgHidden.id="newBg"; bgHidden.value=bgVal; document.body.appendChild(bgHidden); }
+  if (!txHidden) { txHidden = document.createElement("input"); txHidden.type="hidden"; txHidden.id="newText"; txHidden.value=txVal; document.body.appendChild(txHidden); }
+
+  const bgGrid = createColorGrid(bgVal, hex => { bgVal = hex; bgHidden.value = hex; });
+  bgArea.innerHTML = ""; bgArea.appendChild(bgGrid.el);
+
+  const txGrid = createColorGrid(txVal, hex => { txVal = hex; txHidden.value = hex; });
+  txArea.innerHTML = ""; txArea.appendChild(txGrid.el);
+
+  // addTask 後にリセット
+  const origAdd = window._origAddTask;
+  if (!origAdd) {
+    window._bgGridRef = bgGrid; window._txGridRef = txGrid;
+    window._bgGridReset = () => { bgHidden.value="#0f0f0f"; bgGrid.update("#0f0f0f"); };
+    window._txGridReset = () => { txHidden.value="#f0f0f0"; txGrid.update("#f0f0f0"); };
+  }
+}
+
 /* ── エクスポート / インポート ── */
 function exportJSON() {
   const payload = { version:5, exportedAt:new Date().toISOString(),
@@ -791,7 +911,8 @@ function importJSON(file) {
     try {
       const p = JSON.parse(reader.result);
       if (!p || typeof p !== "object") throw new Error("不正なファイル形式");
-      if (typeof p.version !== "number" || p.version < 1 || p.version > 99) throw new Error("バージョン情報が不正");
+      // version がない旧データも受け入れる（v3以前互換）
+      if (p.version !== undefined && (typeof p.version !== "number" || p.version < 1 || p.version > 99)) throw new Error("バージョン情報が不正");
       if (!Array.isArray(p.rows))  throw new Error("rowsが不正");
       if (!Array.isArray(p.tasks)) throw new Error("tasksが不正");
       p.rows.forEach((r,i) => { if (typeof r !== "object" || r === null) throw new Error(`row[${i}]が不正`); });
@@ -802,6 +923,19 @@ function importJSON(file) {
     } catch(e) { showAlert("読み込み失敗", e.message); }
   };
   reader.readAsText(file);
+}
+
+
+/* ── メモカラーグリッド初期化 ── */
+function setupMemoColorGrid() {
+  const area = document.getElementById("memoColorGrid");
+  if (!area) return;
+  const grid = createColorGrid(loadMemoColor(), hex => {
+    saveMemoColor(hex);
+    renderHistory();
+  });
+  area.innerHTML = "";
+  area.appendChild(grid.el);
 }
 
 /* ── タブ切替 ── */
@@ -855,12 +989,12 @@ bindIf("export", "click", () => exportJSON());
 bindIf("import", "change", e => { const f = e.target.files && e.target.files[0]; if (!f) return; importJSON(f); e.target.value = ""; });
 bindIf("saveAppName",  "click", () => { saveAppName($("appName").value); applyAppName(); showAlert("確認","保存完了"); });
 bindIf("resetAppName", "click", () => { localStorage.removeItem(APPNAME_KEY); applyAppName(); });
-bindIf("memoColorPicker", "input", (e) => {
-  saveMemoColor(e.target.value);
-  renderHistory();
-});
+// memoColorPicker bind は setupMemoColorGrid に移行
 
 setupCollapse("masterToggle", "masterBody");
 setupCollapse("catToggle",    "catBody");
+setupCollapse("memoColorToggle", "memoColorBody");
 setupCatMaster();
+setupMemoColorGrid();
+setupNewTaskColorGrids();
 boot();
