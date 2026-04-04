@@ -1,4 +1,4 @@
-/* maintelog sw v18c-dev-20260402 */
+/* maintelog sw v18d-dev-20260402 */
 const CACHE_NAME = "maintelog-dev-20260402";
 const CORE_ASSETS = [
   "./","./index.html","./app.js","./manifest.json",

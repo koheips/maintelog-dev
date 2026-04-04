@@ -1,4 +1,4 @@
-/* メンテログ app.js v18c-dev-20260402
+/* メンテログ app.js v18d-dev-20260402
    主な変更点
    ・3タブ構成（入力／履歴／設定）
    ・推奨作業：要対応のみ入力タブ最上部に表示
@@ -8,7 +8,7 @@
    ・全体UIフラット化
 */
 
-const BUILD_ID = "v18c-dev-20260402";
+const BUILD_ID = "v18d-dev-20260402";
 console.info("[maintelog] build", BUILD_ID);
 
 /* ── カラーパレット（グリッド用） ── */
@@ -145,23 +145,25 @@ function daysBetween(a, b) {
 
 /* ── カラーグリッドUI ── */
 function createColorGrid(currentColor, onChange, opts) {
-  // opts: { hiddenInputId }
   const wrap = document.createElement("div");
-
   const grid = document.createElement("div");
   grid.className = "color-grid";
 
   const swatches = [];
+  let currentHex = currentColor || "#0f0f0f";
+
   const updateSelected = (hex) => {
+    currentHex = hex;
     swatches.forEach(sw => sw.classList.toggle("selected", sw.dataset.color === hex));
   };
 
+  // パレットスウォッチ
   COLOR_PALETTE.forEach(hex => {
     const sw = document.createElement("div");
     sw.className = "color-swatch";
     sw.dataset.color = hex;
     sw.style.background = hex;
-    if (hex === currentColor) sw.classList.add("selected");
+    if (hex === currentHex) sw.classList.add("selected");
     sw.addEventListener("click", () => {
       updateSelected(hex);
       onChange(hex);
@@ -170,21 +172,32 @@ function createColorGrid(currentColor, onChange, opts) {
     grid.appendChild(sw);
   });
 
-  // カスタム色ボタン（ネイティブピッカー呼び出し）
-  const customBtn = document.createElement("label");
+  // ＋ボタン：カスタム色をHex入力で追加（ネイティブピッカー不使用）
+  const customBtn = document.createElement("div");
   customBtn.className = "color-swatch-custom";
-  customBtn.title = "カスタム色";
+  customBtn.title = "カスタム色 (例: #ff0000)";
   customBtn.textContent = "+";
-  const hiddenInp = document.createElement("input");
-  hiddenInp.type = "color";
-  hiddenInp.value = currentColor || "#ffffff";
-  if (opts && opts.hiddenInputId) hiddenInp.id = opts.hiddenInputId;
-  hiddenInp.addEventListener("input", () => {
-    const hex = hiddenInp.value;
+  customBtn.addEventListener("click", () => {
+    const input = prompt("カラーコードを入力 (例: #ff0000)", currentHex);
+    if (!input) return;
+    const hex = input.trim().toLowerCase();
+    if (!/^#[0-9a-f]{6}$/.test(hex)) {
+      alert("正しい形式で入力してください (例: #ff0000)");
+      return;
+    }
+    // 既存スウォッチになければ動的追加
+    if (!swatches.find(sw => sw.dataset.color === hex)) {
+      const sw = document.createElement("div");
+      sw.className = "color-swatch";
+      sw.dataset.color = hex;
+      sw.style.background = hex;
+      sw.addEventListener("click", () => { updateSelected(hex); onChange(hex); });
+      swatches.push(sw);
+      grid.insertBefore(sw, customBtn);
+    }
     updateSelected(hex);
     onChange(hex);
   });
-  customBtn.appendChild(hiddenInp);
   grid.appendChild(customBtn);
 
   wrap.appendChild(grid);
@@ -379,7 +392,8 @@ function renderReco() {
         const nearDue = !due && elapsed !== null && elapsed >= Math.floor(t.freqDays * 0.7);
         const nextDate = last ? (() => {
           const d = new Date(`${last}T00:00:00`); d.setDate(d.getDate() + t.freqDays);
-          return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")}`;
+          const ny=d.getFullYear(), nm=String(d.getMonth()+1).padStart(2,"0"), nd2=String(d.getDate()).padStart(2,"0");
+          return `${ny}-${nm}-${nd2}`;
         })() : null;
         return { ...t, last, elapsed, due, over, nearDue, nextDate, isNightsTrigger: false };
       }
@@ -568,7 +582,9 @@ function renderHistory() {
     const other = String(r.other ?? "").trim();
     if (other) {
       const pill = document.createElement("span"); pill.className = "hist-pill";
-      pill.style.cssText = "background:var(--panel2);color:var(--text3);";
+      pill.style.background = "var(--panel2)";
+      pill.style.color = loadMemoColor();
+      pill.style.border = "0.5px solid rgba(255,255,255,0.12)";
       pill.textContent = other.length > 20 ? other.slice(0,20) + "…" : other;
       pills.appendChild(pill);
     }
@@ -616,7 +632,7 @@ function renderMaster() {
 
     // ⑦ 作業名をpill形式で表示（設定色を反映）
     const nameEl = document.createElement("div"); nameEl.className = "master-name";
-    nameEl.style.cssText = `display:inline-block;padding:3px 12px;border-radius:999px;font-size:13px;font-weight:500;background:${t.bg||"#1c1c1e"};color:${t.text||"#f2f2f7"};border:1px solid ${t.bg&&t.bg!=="0f0f0f"?t.bg:"rgba(255,255,255,.15)"};`;
+    nameEl.style.cssText = `display:inline-block;padding:4px 14px;border-radius:999px;font-size:15px;font-weight:500;background:${t.bg||"#1c1c1e"};color:${t.text||"#f2f2f7"};border:1px solid ${t.bg&&t.bg!=="0f0f0f"?t.bg:"rgba(255,255,255,.15)"};`;
     nameEl.textContent = t.name;
 
     // ⑥ 区分を色付きbadgeで表示
@@ -683,9 +699,9 @@ function renderMaster() {
       const fields = [
         { id:"ename", label:"項目名",      type:"text",   value:tgt.name },
         { id:"ecat",  label:"区分",        type:"select", value:tgt.cat, options:getCats() },
-        { id:"etrig", label:"トリガー種別", type:"select", value:tgt.triggerType,
+        { id:"etrig", label:"判定基準", type:"select", value:tgt.triggerType,
           options:[["days","経過日数"],["nights","累計滞在日数"]] },
-        { id:"efreq", label:"閾値（日）空欄=未設定", type:"number", value:tgt.freqDays ? String(tgt.freqDays) : "" }
+        { id:"efreq", label:"基準値（日）空欄=未設定", type:"number", value:tgt.freqDays ? String(tgt.freqDays) : "" }
       ];
       fields.forEach(f => {
         const fw = document.createElement("div"); fw.className = "modal-field";
@@ -772,8 +788,8 @@ function addTaskFromInputs() {
   const ct   = cats.includes(cat) ? cat : (cats[0] || "その他");
   const tr   = $("newTrigger") && $("newTrigger").value === "nights" ? "nights" : "days";
   const fd   = normalizeIntOrNull($("newFreq").value);
-  const bg   = clampColor($("newBg").value,   "#0f0f0f");
-  const text = clampColor($("newText").value, "#f0f0f0");
+  const bg   = clampColor(_newTaskBg,   "#0f0f0f");
+  const text = clampColor(_newTaskText, "#f0f0f0");
   const tasks = loadTasks();
   if (tasks.find(t => t.name === name)) { showAlert("確認","同名が既に存在"); return; }
   tasks.push({ name, cat:ct, triggerType:tr, freqDays:fd, bg, text });
@@ -784,6 +800,7 @@ function addTaskFromInputs() {
   if (window._bgGridReset) window._bgGridReset();
   if (window._txGridReset) window._txGridReset();
   renderTaskChips(); renderMaster(); renderReco();
+  showSaveToast('addTask');
 }
 
 /* ── 区分マスター ── */
@@ -868,32 +885,47 @@ function setupCollapse(btnId, bodyId) {
 
 
 /* ── 作業追加フォームのカラーグリッド初期化 ── */
+// グリッド選択値をモジュールスコープで管理（hidden input依存を排除）
+let _newTaskBg   = "#0f0f0f";
+let _newTaskText = "#f0f0f0";
+
 function setupNewTaskColorGrids() {
   const bgArea = document.getElementById("newBgGridArea");
   const txArea = document.getElementById("newTextGridArea");
   if (!bgArea || !txArea) return;
 
-  let bgVal = "#0f0f0f", txVal = "#f0f0f0";
+  _newTaskBg   = "#0f0f0f";
+  _newTaskText = "#f0f0f0";
 
-  // hidden input を用意（addTaskFromInputs で参照）
-  let bgHidden = document.getElementById("newBg");
-  let txHidden = document.getElementById("newText");
-  if (!bgHidden) { bgHidden = document.createElement("input"); bgHidden.type="hidden"; bgHidden.id="newBg"; bgHidden.value=bgVal; document.body.appendChild(bgHidden); }
-  if (!txHidden) { txHidden = document.createElement("input"); txHidden.type="hidden"; txHidden.id="newText"; txHidden.value=txVal; document.body.appendChild(txHidden); }
-
-  const bgGrid = createColorGrid(bgVal, hex => { bgVal = hex; bgHidden.value = hex; });
+  const bgGrid = createColorGrid(_newTaskBg, hex => { _newTaskBg = hex; });
   bgArea.innerHTML = ""; bgArea.appendChild(bgGrid.el);
 
-  const txGrid = createColorGrid(txVal, hex => { txVal = hex; txHidden.value = hex; });
+  const txGrid = createColorGrid(_newTaskText, hex => { _newTaskText = hex; });
   txArea.innerHTML = ""; txArea.appendChild(txGrid.el);
 
-  // addTask 後にリセット
-  const origAdd = window._origAddTask;
-  if (!origAdd) {
-    window._bgGridRef = bgGrid; window._txGridRef = txGrid;
-    window._bgGridReset = () => { bgHidden.value="#0f0f0f"; bgGrid.update("#0f0f0f"); };
-    window._txGridReset = () => { txHidden.value="#f0f0f0"; txGrid.update("#f0f0f0"); };
+  window._bgGridReset = () => { _newTaskBg="#0f0f0f";   bgGrid.update("#0f0f0f"); };
+  window._txGridReset = () => { _newTaskText="#f0f0f0"; txGrid.update("#f0f0f0"); };
+}
+
+
+/* ── 保存トースト ── */
+function showSaveToast(anchorId) {
+  const existing = document.querySelector(".save-toast");
+  if (existing) existing.remove();
+  const toast = document.createElement("div");
+  toast.className = "save-toast";
+  toast.innerHTML = "<span>✓</span><span>保存しました</span>";
+  const anchor = document.getElementById(anchorId || "save");
+  if (anchor && anchor.parentNode) {
+    anchor.parentNode.insertBefore(toast, anchor.nextSibling);
+  } else {
+    document.body.appendChild(toast);
   }
+  setTimeout(() => {
+    toast.style.transition = "opacity .4s";
+    toast.style.opacity = "0";
+    setTimeout(() => toast.remove(), 400);
+  }, 1800);
 }
 
 /* ── エクスポート / インポート ── */
@@ -973,7 +1005,7 @@ bindIf("save", "click", () => {
   const tasks = getSelectedTasks(), other = $("other").value || "";
   if (!date) { showAlert("確認","日付は必須"); return; }
   if (!tasks.length && !String(other).trim() && nights === null) return;
-  addRow({ date, nights, tasks, other }); clearInput(); renderStatus(); renderReco();
+  addRow({ date, nights, tasks, other }); clearInput(); renderStatus(); renderReco(); showSaveToast('save');
 });
 bindIf("clear", "click", () => clearInput());
 bindIf("wipe",  "click", () => {
