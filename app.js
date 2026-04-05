@@ -8,7 +8,7 @@
    ・全体UIフラット化
 */
 
-const BUILD_ID = "v18d-dev-20260405-stage5";
+const BUILD_ID = "v18d-dev-20260405-stage7-palette-native";
 console.info("[maintelog] build", BUILD_ID);
 
 /* ── カラーパレット（グリッド用） ── */
@@ -153,71 +153,66 @@ function daysBetween(a, b) {
   return Number.isFinite(ms) ? Math.floor(ms / 86400000) : null;
 }
 
-/* ── カラーグリッドUI ── */
+/* ── ネイティブカラーピッカーUI ── */
 function createColorGrid(currentColor, onChange, opts) {
   const wrap = document.createElement("div");
-  const grid = document.createElement("div");
-  grid.className = "color-grid";
+  wrap.style.cssText = "display:flex;align-items:center;gap:10px;flex-wrap:wrap;";
 
-  const swatches = [];
   let currentHex = clampColor(currentColor, "#0f0f0f").toLowerCase();
+
+  const trigger = document.createElement("button");
+  trigger.type = "button";
+  trigger.setAttribute("aria-label", "カラーを選択");
+  trigger.style.cssText = [
+    "width:52px",
+    "height:52px",
+    "border-radius:999px",
+    "border:2px solid rgba(255,255,255,.35)",
+    "box-shadow:0 0 0 2px rgba(0,0,0,.55) inset",
+    "background:" + currentHex,
+    "padding:0",
+    "cursor:pointer",
+    "appearance:none",
+    "-webkit-appearance:none"
+  ].join(";");
+
+  const nativeInput = document.createElement("input");
+  nativeInput.type = "color";
+  nativeInput.value = currentHex;
+  nativeInput.setAttribute("aria-hidden", "true");
+  nativeInput.tabIndex = -1;
+  nativeInput.style.cssText = "position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;";
+
+  const openPicker = () => {
+    nativeInput.value = currentHex;
+    if (typeof nativeInput.showPicker === "function") {
+      nativeInput.showPicker();
+    } else {
+      nativeInput.click();
+    }
+  };
 
   const updateSelected = (hex) => {
     currentHex = clampColor(hex, currentHex).toLowerCase();
-    swatches.forEach(sw => sw.classList.toggle("selected", sw.dataset.color === currentHex));
+    trigger.style.background = currentHex;
+    nativeInput.value = currentHex;
   };
 
-  const addSwatch = (hex) => {
-    const normalized = clampColor(hex, "#0f0f0f").toLowerCase();
-    const existing = swatches.find(sw => sw.dataset.color === normalized);
-    if (existing) return existing;
-    const sw = document.createElement("div");
-    sw.className = "color-swatch";
-    sw.dataset.color = normalized;
-    sw.style.background = normalized;
-    sw.addEventListener("click", () => {
-      updateSelected(normalized);
-      onChange(normalized);
-    });
-    swatches.push(sw);
-    return sw;
-  };
-
-  // パレットスウォッチ
-  COLOR_PALETTE.forEach(hex => {
-    const sw = addSwatch(hex);
-    grid.appendChild(sw);
+  trigger.addEventListener("click", openPicker);
+  nativeInput.addEventListener("input", () => {
+    const next = clampColor(nativeInput.value, currentHex).toLowerCase();
+    updateSelected(next);
+    onChange(next);
+  });
+  nativeInput.addEventListener("change", () => {
+    const next = clampColor(nativeInput.value, currentHex).toLowerCase();
+    updateSelected(next);
+    onChange(next);
   });
 
-  // ＋ボタン：カスタム色をHex入力で追加（ネイティブピッカー不使用）
-  const customBtn = document.createElement("div");
-  customBtn.className = "color-swatch-custom";
-  customBtn.title = "カスタム色 (例: #ff0000)";
-  customBtn.textContent = "+";
-
-  // 現在値がパレット外でも選択状態が分かるように事前追加
-  if (!swatches.find(sw => sw.dataset.color === currentHex)) {
-    const sw = addSwatch(currentHex);
-    grid.appendChild(sw);
-  }
-
-  customBtn.addEventListener("click", () => {
-    const input = prompt("カラーコードを入力 (例: #ff0000)", currentHex);
-    if (!input) return;
-    const hex = input.trim().toLowerCase();
-    if (!/^#[0-9a-f]{6}$/.test(hex)) {
-      alert("正しい形式で入力してください (例: #ff0000)");
-      return;
-    }
-    const sw = addSwatch(hex);
-    if (!sw.parentNode) grid.insertBefore(sw, customBtn);
-    updateSelected(hex);
-    onChange(hex);
-  });
-  grid.appendChild(customBtn);
   updateSelected(currentHex);
-
-  wrap.appendChild(grid);
+  wrap.appendChild(trigger);
+  wrap.appendChild(nativeInput);
   return { el: wrap, update: updateSelected };
 }
 
