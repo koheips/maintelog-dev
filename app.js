@@ -31,6 +31,7 @@ const STORAGE_KEY = "maintelog_rows_v2";
 const TASKS_KEY   = "maintelog_tasks_v2";
 const APPNAME_KEY = "maintelog_appname_v3";
 const CATS_KEY    = "maintelog_cats_v1";
+const MEMO_COLOR_KEY = "maintelog_memo_color_v1"; // [stage1-change] 追加
 const DEFAULT_CATS = ["掃除","洗濯","その他"];
 
 /* ── ストレージ ── */
@@ -43,6 +44,15 @@ function safeSet(key, value) {
 }
 function loadJSON(key, fb) { try { const r = localStorage.getItem(key); return r ? JSON.parse(r) : fb; } catch { return fb; } }
 function saveJSON(key, val) { safeSet(key, JSON.stringify(val)); }
+
+/* ── メモ表示色 ── */
+function loadMemoColor() { // [stage1-change] 追加
+  const raw = localStorage.getItem(MEMO_COLOR_KEY);
+  return clampColor(raw, "#f0f0f0");
+}
+function saveMemoColor(color) { // [stage1-change] 追加
+  return safeSet(MEMO_COLOR_KEY, clampColor(color, "#f0f0f0"));
+}
 
 /* ── 区分 ── */
 function loadCats() {
@@ -945,14 +955,25 @@ function importJSON(file) {
       if (!p || typeof p !== "object") throw new Error("不正なファイル形式");
       // version がない旧データも受け入れる（v3以前互換）
       if (p.version !== undefined && (typeof p.version !== "number" || p.version < 1 || p.version > 99)) throw new Error("バージョン情報が不正");
-      if (!Array.isArray(p.rows))  throw new Error("rowsが不正");
-      if (!Array.isArray(p.tasks)) throw new Error("tasksが不正");
+      if (!Array.isArray(p.rows)) throw new Error("rowsが不正");
       p.rows.forEach((r,i) => { if (typeof r !== "object" || r === null) throw new Error(`row[${i}]が不正`); });
+      if (p.tasks !== undefined && !Array.isArray(p.tasks)) throw new Error("tasksが不正"); // [stage1-change] 旧JSON切り分け用に緩和
       if (typeof p.appName === "string") saveAppName(p.appName);
-      const m = migrateTasks(p.tasks); if (m) saveTasks(m);
+      if (typeof p.memoColor === "string") saveMemoColor(p.memoColor); // [stage1-change] 任意項目として受理
+      if (Array.isArray(p.tasks)) {
+        const m = migrateTasks(p.tasks);
+        if (!m) throw new Error("tasksが不正");
+        saveTasks(m);
+      }
       saveRows(p.rows.map(r => ({ id:r.id || genId(), ...r })));
-      boot(); showAlert("確認","復元完了");
-    } catch(e) { showAlert("読み込み失敗", e.message); }
+      boot();
+      setupMemoColorGrid(); // [stage1-change] 復元後に設定画面の色グリッドも再描画
+      setupNewTaskColorGrids(); // [stage1-change] 復元後に作業追加側の色グリッドも再描画
+      showAlert("確認","復元完了");
+    } catch(e) {
+      console.error("[maintelog] import failed", e); // [stage1-change] 切り分け用
+      showAlert("読み込み失敗", e && e.message ? e.message : "不明なエラー");
+    }
   };
   reader.readAsText(file);
 }
@@ -1005,7 +1026,7 @@ bindIf("save", "click", () => {
   const tasks = getSelectedTasks(), other = $("other").value || "";
   if (!date) { showAlert("確認","日付は必須"); return; }
   if (!tasks.length && !String(other).trim() && nights === null) return;
-  addRow({ date, nights, tasks, other }); clearInput(); renderStatus(); renderReco(); showSaveToast('save');
+  addRow({ date, nights, tasks, other }); clearInput(); renderStatus(); renderReco(); renderHistory(); showSaveToast('save'); // [stage1-change] 保存直後の履歴反映
 });
 bindIf("clear", "click", () => clearInput());
 bindIf("wipe",  "click", () => {
@@ -1027,6 +1048,6 @@ setupCollapse("masterToggle", "masterBody");
 setupCollapse("catToggle",    "catBody");
 setupCollapse("memoColorToggle", "memoColorBody");
 setupCatMaster();
-setupMemoColorGrid();
-setupNewTaskColorGrids();
-boot();
+boot(); // [stage1-change] 先に基本初期化
+setupMemoColorGrid(); // [stage1-change] boot後に色グリッド初期化
+setupNewTaskColorGrids(); // [stage1-change] boot後に色グリッド初期化
