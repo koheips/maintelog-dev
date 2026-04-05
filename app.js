@@ -160,25 +160,32 @@ function createColorGrid(currentColor, onChange, opts) {
   grid.className = "color-grid";
 
   const swatches = [];
-  let currentHex = currentColor || "#0f0f0f";
+  let currentHex = clampColor(currentColor, "#0f0f0f").toLowerCase();
 
   const updateSelected = (hex) => {
-    currentHex = hex;
-    swatches.forEach(sw => sw.classList.toggle("selected", sw.dataset.color === hex));
+    currentHex = clampColor(hex, currentHex).toLowerCase();
+    swatches.forEach(sw => sw.classList.toggle("selected", sw.dataset.color === currentHex));
+  };
+
+  const addSwatch = (hex) => {
+    const normalized = clampColor(hex, "#0f0f0f").toLowerCase();
+    const existing = swatches.find(sw => sw.dataset.color === normalized);
+    if (existing) return existing;
+    const sw = document.createElement("div");
+    sw.className = "color-swatch";
+    sw.dataset.color = normalized;
+    sw.style.background = normalized;
+    sw.addEventListener("click", () => {
+      updateSelected(normalized);
+      onChange(normalized);
+    });
+    swatches.push(sw);
+    return sw;
   };
 
   // パレットスウォッチ
   COLOR_PALETTE.forEach(hex => {
-    const sw = document.createElement("div");
-    sw.className = "color-swatch";
-    sw.dataset.color = hex;
-    sw.style.background = hex;
-    if (hex === currentHex) sw.classList.add("selected");
-    sw.addEventListener("click", () => {
-      updateSelected(hex);
-      onChange(hex);
-    });
-    swatches.push(sw);
+    const sw = addSwatch(hex);
     grid.appendChild(sw);
   });
 
@@ -187,6 +194,13 @@ function createColorGrid(currentColor, onChange, opts) {
   customBtn.className = "color-swatch-custom";
   customBtn.title = "カスタム色 (例: #ff0000)";
   customBtn.textContent = "+";
+
+  // 現在値がパレット外でも選択状態が分かるように事前追加
+  if (!swatches.find(sw => sw.dataset.color === currentHex)) {
+    const sw = addSwatch(currentHex);
+    grid.appendChild(sw);
+  }
+
   customBtn.addEventListener("click", () => {
     const input = prompt("カラーコードを入力 (例: #ff0000)", currentHex);
     if (!input) return;
@@ -195,20 +209,13 @@ function createColorGrid(currentColor, onChange, opts) {
       alert("正しい形式で入力してください (例: #ff0000)");
       return;
     }
-    // 既存スウォッチになければ動的追加
-    if (!swatches.find(sw => sw.dataset.color === hex)) {
-      const sw = document.createElement("div");
-      sw.className = "color-swatch";
-      sw.dataset.color = hex;
-      sw.style.background = hex;
-      sw.addEventListener("click", () => { updateSelected(hex); onChange(hex); });
-      swatches.push(sw);
-      grid.insertBefore(sw, customBtn);
-    }
+    const sw = addSwatch(hex);
+    if (!sw.parentNode) grid.insertBefore(sw, customBtn);
     updateSelected(hex);
     onChange(hex);
   });
   grid.appendChild(customBtn);
+  updateSelected(currentHex);
 
   wrap.appendChild(grid);
   return { el: wrap, update: updateSelected };
@@ -332,9 +339,9 @@ function renderTaskChips() {
       const sp = document.createElement("span"); sp.textContent = t.name;
 
       const applyChipState = () => {
+        lbl.classList.remove("checked");
         if (cb.checked) {
           if (hasCustom) {
-            lbl.classList.remove("checked");
             lbl.style.background = t.bg;
             lbl.style.color = t.text;
             lbl.style.borderColor = t.bg;
@@ -345,7 +352,6 @@ function renderTaskChips() {
             lbl.style.borderColor = "";
           }
         } else {
-          lbl.classList.remove("checked");
           lbl.style.background = "";
           lbl.style.color = "";
           lbl.style.borderColor = hasCustom ? t.bg : "";
@@ -551,15 +557,28 @@ function openHistEditModal(rowId) {
     items.forEach(t => {
       const lbl = document.createElement("label"); lbl.className = "task-chip";
       const cb = document.createElement("input"); cb.type = "checkbox"; cb.value = t.name; cb.checked = selSet.has(t.name);
-      cb.addEventListener("change", () => lbl.classList.toggle("checked", cb.checked));
-      if (cb.checked) lbl.classList.add("checked");
-      if (t.bg !== "#0f0f0f" || t.text !== "#f0f0f0") {
-        cb.addEventListener("change", () => {
-          if (cb.checked) { lbl.style.background = t.bg; lbl.style.color = t.text; }
-          else { lbl.style.background = ""; lbl.style.color = ""; }
-        });
-        if (cb.checked) { lbl.style.background = t.bg; lbl.style.color = t.text; }
-      }
+      const hasCustom = (t.bg !== "#0f0f0f" || t.text !== "#f0f0f0");
+      const applyChipState = () => {
+        lbl.classList.remove("checked");
+        if (cb.checked) {
+          if (hasCustom) {
+            lbl.style.background = t.bg;
+            lbl.style.color = t.text;
+            lbl.style.borderColor = t.bg;
+          } else {
+            lbl.classList.add("checked");
+            lbl.style.background = "";
+            lbl.style.color = "";
+            lbl.style.borderColor = "";
+          }
+        } else {
+          lbl.style.background = "";
+          lbl.style.color = "";
+          lbl.style.borderColor = hasCustom ? t.bg : "";
+        }
+      };
+      cb.addEventListener("change", applyChipState);
+      applyChipState();
       const sp = document.createElement("span"); sp.textContent = t.name;
       lbl.appendChild(cb); lbl.appendChild(sp); chips.appendChild(lbl);
     });
