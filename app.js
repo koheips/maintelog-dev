@@ -556,8 +556,8 @@ function openHistEditModal(rowId) {
   // 滞在日数
   const nw = document.createElement("div"); nw.className = "modal-field";
   nw.innerHTML = `<label>滞在日数</label>`;
-  const nInp = document.createElement("input"); nInp.type = "text"; nInp.inputMode = "numeric"; nInp.pattern = "[0-9]*";
-  nInp.value = (row.nights != null) ? String(row.nights) : ""; attachNumericMirror(nInp); nw.appendChild(nInp); wrap.appendChild(nw);
+  const nInp = document.createElement("input"); nInp.type = "number"; nInp.inputMode = "numeric"; nInp.min = "0";
+  nInp.value = (row.nights != null) ? String(row.nights) : ""; nw.appendChild(nInp); wrap.appendChild(nw);
 
   // 作業チェックボックス
   const tl = document.createElement("div"); tl.className = "modal-field";
@@ -798,7 +798,7 @@ function renderMaster() {
           el = document.createElement("input"); el.type = f.type; el.value = f.value ?? "";
           if (f.type === "number") { el.inputMode = "numeric"; el.min = "1"; }
         }
-        el.id = f.id; if (f.id === "efreq") attachNumericMirror(el); fw.appendChild(el); wrap.appendChild(fw);
+        el.id = f.id; fw.appendChild(el); wrap.appendChild(fw);
       });
       // 色設定（カラーグリッド）
       let currentBg   = clampColor(tgt.bg,   "#0f0f0f");
@@ -863,10 +863,7 @@ function renderMaster() {
           const nm = String($("ename").value ?? "").trim(); if (!nm) return;
           const ct = getCats().includes(String($("ecat").value).trim()) ? String($("ecat").value).trim() : "その他";
           const tr = $("etrig").value === "nights" ? "nights" : "days";
-          const efreqEl = $("efreq");
-          const fdRaw = readNumericMirror(efreqEl);
-          const fd = normalizeIntOrNull(fdRaw);
-          logNumericState("master-edit-save", { fdRaw, fd });
+          const fd = normalizeIntOrNull(String($("efreq").value ?? "").trim());
           if (ts.find((x,i) => i !== idx && x.name === nm)) { showAlert("確認","同名が既に存在"); return; }
           ts[idx] = { ...tgt, name:nm, cat:ct, triggerType:tr, freqDays:fd,
             bg:clampColor(currentBg,"#0f0f0f"), text:clampColor(currentText,"#f0f0f0") };
@@ -1148,8 +1145,6 @@ function setView(which) {
 function boot() {
   ensureDefaultTasks();
   $("date").value = todayISO();
-  attachNumericMirror($("nights"));
-  attachNumericMirror($("newFreq"));
   applyAppName(); renderStatus();
   renderTaskChips(); renderMaster(); renderReco(); renderHistory();
   // メモ文字色ピッカー初期値
