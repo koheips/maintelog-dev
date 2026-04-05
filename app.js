@@ -8,7 +8,7 @@
    ・全体UIフラット化
 */
 
-const BUILD_ID = "v18d-dev-20260405-stage9-native-small-horizontal";
+const BUILD_ID = "v18d-dev-20260405-stage11-wash-no-flash-memo-full";
 console.info("[maintelog] build", BUILD_ID);
 
 /* ── カラーパレット（グリッド用） ── */
@@ -354,22 +354,23 @@ function renderTaskChips() {
 
       const applyChipState = () => {
         lbl.classList.remove("checked");
+        lbl.style.transition = "none";
         if (cb.checked) {
           if (hasCustom) {
             lbl.style.background = t.bg;
             lbl.style.color = t.text;
             lbl.style.borderColor = t.bg;
           } else {
-            lbl.classList.add("checked");
-            lbl.style.background = "";
-            lbl.style.color = "";
-            lbl.style.borderColor = "";
+            lbl.style.background = "var(--accent)";
+            lbl.style.color = "#fff";
+            lbl.style.borderColor = "var(--accent)";
           }
         } else {
           lbl.style.background = "";
           lbl.style.color = "";
           lbl.style.borderColor = hasCustom ? t.bg : "";
         }
+        requestAnimationFrame(() => { lbl.style.transition = ""; });
       };
 
       cb.addEventListener("change", applyChipState);
@@ -574,22 +575,23 @@ function openHistEditModal(rowId) {
       const hasCustom = (t.bg !== "#0f0f0f" || t.text !== "#f0f0f0");
       const applyChipState = () => {
         lbl.classList.remove("checked");
+        lbl.style.transition = "none";
         if (cb.checked) {
           if (hasCustom) {
             lbl.style.background = t.bg;
             lbl.style.color = t.text;
             lbl.style.borderColor = t.bg;
           } else {
-            lbl.classList.add("checked");
-            lbl.style.background = "";
-            lbl.style.color = "";
-            lbl.style.borderColor = "";
+            lbl.style.background = "var(--accent)";
+            lbl.style.color = "#fff";
+            lbl.style.borderColor = "var(--accent)";
           }
         } else {
           lbl.style.background = "";
           lbl.style.color = "";
           lbl.style.borderColor = hasCustom ? t.bg : "";
         }
+        requestAnimationFrame(() => { lbl.style.transition = ""; });
       };
       cb.addEventListener("change", applyChipState);
       applyChipState();
@@ -661,7 +663,7 @@ function renderHistory() {
       pill.style.background = "var(--panel2)";
       pill.style.color = loadMemoColor();
       pill.style.border = "0.5px solid rgba(255,255,255,0.12)";
-      pill.textContent = other.length > 20 ? other.slice(0,20) + "…" : other;
+      pill.textContent = other;
       pills.appendChild(pill);
     }
 
