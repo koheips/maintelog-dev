@@ -813,24 +813,47 @@ function renderMaster() {
       prev.style.marginBottom = "10px";
       cw.appendChild(prev);
 
-      // 背景色グリッド
-      const bgLbl = document.createElement("div"); bgLbl.style.cssText="font-size:11px;color:#8e8e93;margin-bottom:6px;"; bgLbl.textContent="背景色";
-      cw.appendChild(bgLbl);
-      const bgGrid = createColorGrid(currentBg, hex => {
-        currentBg = hex; bgInp.value = hex; prev.style.background = hex;
-      }, { hiddenInputId: "editBgHidden" });
-      // hidden inputへの参照を作成
-      const bgInp = document.createElement("input"); bgInp.type="hidden"; bgInp.id="editBgHidden"; bgInp.value=currentBg;
-      cw.appendChild(bgGrid.el); cw.appendChild(bgInp);
+      // 背景色、文字色を横並びで表示
+      const colorRow = document.createElement("div");
+      colorRow.style.cssText = "display:flex;align-items:center;justify-content:flex-start;gap:18px;flex-wrap:nowrap;overflow-x:auto;";
 
-      // 文字色グリッド
-      const txLbl = document.createElement("div"); txLbl.style.cssText="font-size:11px;color:#8e8e93;margin:10px 0 6px;"; txLbl.textContent="文字色";
-      cw.appendChild(txLbl);
-      const txGrid = createColorGrid(currentText, hex => {
-        currentText = hex; txInp.value = hex; prev.style.color = hex;
-      }, { hiddenInputId: "editTxHidden" });
-      const txInp = document.createElement("input"); txInp.type="hidden"; txInp.id="editTxHidden"; txInp.value=currentText;
-      cw.appendChild(txGrid.el); cw.appendChild(txInp);
+      const makeColorCell = (labelText, initialColor, hiddenId, onPick) => {
+        const cell = document.createElement("div");
+        cell.style.cssText = "display:flex;align-items:center;gap:8px;flex:0 0 auto;min-width:0;";
+
+        const lbl = document.createElement("div");
+        lbl.style.cssText = "font-size:11px;color:#8e8e93;white-space:nowrap;";
+        lbl.textContent = labelText;
+
+        const hidden = document.createElement("input");
+        hidden.type = "hidden";
+        hidden.id = hiddenId;
+        hidden.value = initialColor;
+
+        const grid = createColorGrid(initialColor, hex => {
+          hidden.value = hex;
+          onPick(hex);
+        });
+
+        cell.appendChild(lbl);
+        cell.appendChild(grid.el);
+        cell.appendChild(hidden);
+        return { cell, hidden };
+      };
+
+      const bgCell = makeColorCell("背景色", currentBg, "editBgHidden", hex => {
+        currentBg = hex;
+        prev.style.background = hex;
+      });
+
+      const txCell = makeColorCell("文字色", currentText, "editTxHidden", hex => {
+        currentText = hex;
+        prev.style.color = hex;
+      });
+
+      colorRow.appendChild(bgCell.cell);
+      colorRow.appendChild(txCell.cell);
+      cw.appendChild(colorRow);
       wrap.appendChild(cw);
 
       openModal({ title:"項目を編集", bodyNodes:[wrap], okText:"保存",
