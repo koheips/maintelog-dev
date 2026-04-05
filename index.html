@@ -72,16 +72,49 @@
       color:rgba(255,120,110,.9); text-transform:uppercase; margin-bottom:8px;
     }
     .reco-row {
-      display:flex; justify-content:space-between; align-items:flex-start;
-      padding:7px 0; border-bottom:0.5px solid rgba(255,69,58,.12); gap:8px;
+      display:grid;
+      grid-template-columns:minmax(0,1fr) auto auto;
+      align-items:center;
+      column-gap:12px;
+      row-gap:2px;
+      padding:7px 0;
+      border-bottom:0.5px solid rgba(255,69,58,.12);
     }
     .reco-row:last-child { border-bottom:none; }
-    .reco-row-name { font-size:14px; color:var(--text); }
-    .reco-row-right {
-      display:flex; flex-wrap:wrap; justify-content:flex-end;
-      align-items:center; gap:4px 8px; flex-shrink:0; max-width:60%;
+    .reco-row-name {
+      font-size:14px;
+      color:var(--text);
+      min-width:0;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
     }
-    .reco-date-sub { font-size:10px; color:#8e8e93; width:100%; text-align:right; margin-top:1px; }
+    .reco-row-center {
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      min-width:0;
+      white-space:nowrap;
+    }
+    .reco-row-long .reco-row-center {
+      flex-direction:column;
+      align-items:center;
+      gap:1px;
+    }
+    .reco-date-sub {
+      font-size:10px;
+      color:#8e8e93;
+      text-align:center;
+      white-space:nowrap;
+      margin-top:0;
+    }
+    .reco-row-right {
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      white-space:nowrap;
+    }
     .reco-row-date { font-size:11px; color:var(--text3); white-space:nowrap; }
     .reco-badge {
       font-size:11px; padding:2px 9px; border-radius:999px; white-space:nowrap; font-weight:500;

@@ -427,9 +427,14 @@ function renderReco() {
 
     const name = document.createElement("span"); name.className = "reco-row-name"; name.textContent = t.name;
 
-    const right = document.createElement("div"); right.className = "reco-row-right";
-    const dateEl = document.createElement("span"); dateEl.className = "reco-row-date";
-    const badge  = document.createElement("span"); badge.className = "reco-badge";
+    const center = document.createElement("div");
+    center.className = "reco-row-center";
+
+    const right = document.createElement("div");
+    right.className = "reco-row-right";
+
+    const badge  = document.createElement("span");
+    badge.className = "reco-badge";
 
     // 年を下2桁で短縮
     const fmtShort = iso => {
@@ -437,7 +442,7 @@ function renderReco() {
       const [y,m,d] = iso.split("-");
       return `${String(y).slice(2)}/${m}/${d}`;
     };
-    // lastSpan / nextSpan を常にスコープ内で宣言（スコープバグ修正）
+
     const lastSpan = document.createElement("span");
     lastSpan.className = "reco-row-date reco-date-sub";
     let nextSpan = null;
@@ -458,7 +463,7 @@ function renderReco() {
         badge.textContent = `+${t.over}日超過`;
         badge.classList.add("reco-badge-red");
       } else {
-        badge.textContent = `あと${t.freqDays - (t.elapsed||0)}日`;
+        badge.textContent = `あと${t.freqDays - (t.elapsed || 0)}日`;
         badge.classList.add("reco-badge-amber");
       }
       lastSpan.textContent = t.last ? `前回 ${fmtShort(t.last)}` : "前回 未実施";
@@ -468,13 +473,20 @@ function renderReco() {
         nextSpan.textContent = `次回 ${fmtShort(t.nextDate)}`;
       }
     }
-    dateEl.style.display = "none";
+
+    center.appendChild(lastSpan);
+    if (nextSpan) center.appendChild(nextSpan);
 
     right.appendChild(badge);
-    right.appendChild(lastSpan);
-    if (nextSpan) right.appendChild(nextSpan);
-    row.appendChild(name); row.appendChild(right);
+
+    row.appendChild(name);
+    row.appendChild(center);
+    row.appendChild(right);
     list.appendChild(row);
+
+    if (nextSpan && row.scrollWidth > row.clientWidth) {
+      row.classList.add("reco-row-long");
+    }
   });
 
   banner.style.display = "";
