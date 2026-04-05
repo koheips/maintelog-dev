@@ -1,0 +1,37 @@
+変更概要
+・対象を数値入力3箇所のみに限定して修正
+・UI見た目は変更なし
+・他機能は変更なし
+・PWA反映確認のため、バージョン識別子のみ更新
+
+変更ファイル
+・app.js
+・index.html
+・manifest.json
+・sw.js
+
+変更詳細
+1 app.js
+・BUILD_ID を更新
+・normalizeNonNegativeIntOrNull を追加
+・記録入力の滞在日数保存時に normalizeNonNegativeIntOrNull を使用
+・履歴編集モーダルの滞在日数保存時に normalizeNonNegativeIntOrNull を使用
+・作業追加の基準値取得時に文字列trim後に normalizeIntOrNull を使用
+・作業内容マスター編集モーダルの基準値入力を type="text" 前提に変更
+
+2 index.html
+・#nights を type="number" から type="text" inputmode="numeric" pattern="[0-9]*" に変更
+・#newFreq を type="number" から type="text" inputmode="numeric" pattern="[0-9]*" に変更
+・app.js と sw.js のクエリ識別子を更新
+
+3 manifest.json
+・start_url の識別子を更新
+
+4 sw.js
+・コメントの版表記を更新
+・CACHE_NAME を更新
+
+意図
+・iPhone のホーム画面追加 PWA で type="number" の挙動差が疑われるため、対象3箇所だけ text + inputmode="numeric" に切替
+・滞在日数は placeholder と入力意図に合わせて 0 を許容
+・基準値は従来どおり 1 以上のみ有効
