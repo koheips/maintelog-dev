@@ -8,7 +8,7 @@
    ・全体UIフラット化
 */
 
-const BUILD_ID = "v18d-dev-20260405-pwa-numeric-textfix";
+const BUILD_ID = "v18d-dev-20260405-stage11-wash-no-flash-memo-full";
 console.info("[maintelog] build", BUILD_ID);
 
 /* ── カラーパレット（グリッド用） ── */
@@ -147,11 +147,6 @@ function normalizeIntOrNull(raw) {
   if (raw === "" || raw == null) return null;
   const n = Number(raw); if (!Number.isFinite(n)) return null;
   const i = Math.trunc(n); return i <= 0 ? null : i;
-}
-function normalizeNonNegativeIntOrNull(raw) {
-  if (raw === "" || raw == null) return null;
-  const n = Number(raw); if (!Number.isFinite(n)) return null;
-  const i = Math.trunc(n); return i < 0 ? null : i;
 }
 function daysBetween(a, b) {
   const ms = new Date(`${b}T00:00:00`) - new Date(`${a}T00:00:00`);
@@ -561,8 +556,8 @@ function openHistEditModal(rowId) {
   // 滞在日数
   const nw = document.createElement("div"); nw.className = "modal-field";
   nw.innerHTML = `<label>滞在日数</label>`;
-  const nInp = document.createElement("input"); nInp.type = "number"; nInp.inputMode = "numeric"; nInp.min = "0";
-  nInp.value = (row.nights != null) ? String(row.nights) : ""; nw.appendChild(nInp); wrap.appendChild(nw);
+  const nInp = document.createElement("input"); nInp.type = "text"; nInp.inputMode = "numeric"; nInp.pattern = "[0-9]*";
+  nInp.value = (row.nights != null) ? String(row.nights) : ""; attachNumericMirror(nInp); nw.appendChild(nInp); wrap.appendChild(nw);
 
   // 作業チェックボックス
   const tl = document.createElement("div"); tl.className = "modal-field";
@@ -616,7 +611,7 @@ function openHistEditModal(rowId) {
     onOk: () => {
       if (!dInp.value) { showAlert("確認","日付は必須"); return; }
       const newTasks = Array.from(wrap.querySelectorAll("input[type=checkbox]")).filter(c => c.checked).map(c => c.value);
-      updateRow(rowId, { date:dInp.value, nights:normalizeNonNegativeIntOrNull(String(nInp.value ?? "").trim()), tasks:newTasks, other:oTA.value });
+      updateRow(rowId, { date:dInp.value, nights:normalizeIntOrNull(nInp.value), tasks:newTasks, other:oTA.value });
       renderStatus(); renderHistory(); renderReco();
     }
   });
@@ -784,7 +779,7 @@ function renderMaster() {
         { id:"ecat",  label:"区分",        type:"select", value:tgt.cat, options:getCats() },
         { id:"etrig", label:"判定基準", type:"select", value:tgt.triggerType,
           options:[["days","経過日数"],["nights","累計滞在日数"]] },
-        { id:"efreq", label:"基準値（日）空欄=未設定", type:"text", value:tgt.freqDays ? String(tgt.freqDays) : "" }
+        { id:"efreq", label:"基準値（日）空欄=未設定", type:"number", value:tgt.freqDays ? String(tgt.freqDays) : "" }
       ];
       fields.forEach(f => {
         const fw = document.createElement("div"); fw.className = "modal-field";
@@ -801,9 +796,9 @@ function renderMaster() {
           });
         } else {
           el = document.createElement("input"); el.type = f.type; el.value = f.value ?? "";
-          if (f.id === "efreq") { el.inputMode = "numeric"; el.pattern = "[0-9]*"; }
+          if (f.type === "number") { el.inputMode = "numeric"; el.min = "1"; }
         }
-        el.id = f.id; fw.appendChild(el); wrap.appendChild(fw);
+        el.id = f.id; if (f.id === "efreq") attachNumericMirror(el); fw.appendChild(el); wrap.appendChild(fw);
       });
       // 色設定（カラーグリッド）
       let currentBg   = clampColor(tgt.bg,   "#0f0f0f");
@@ -868,7 +863,10 @@ function renderMaster() {
           const nm = String($("ename").value ?? "").trim(); if (!nm) return;
           const ct = getCats().includes(String($("ecat").value).trim()) ? String($("ecat").value).trim() : "その他";
           const tr = $("etrig").value === "nights" ? "nights" : "days";
-          const fd = normalizeIntOrNull(String($("efreq").value ?? "").trim());
+          const efreqEl = $("efreq");
+          const fdRaw = readNumericMirror(efreqEl);
+          const fd = normalizeIntOrNull(fdRaw);
+          logNumericState("master-edit-save", { fdRaw, fd });
           if (ts.find((x,i) => i !== idx && x.name === nm)) { showAlert("確認","同名が既に存在"); return; }
           ts[idx] = { ...tgt, name:nm, cat:ct, triggerType:tr, freqDays:fd,
             bg:clampColor(currentBg,"#0f0f0f"), text:clampColor(currentText,"#f0f0f0") };
@@ -893,7 +891,7 @@ function addTaskFromInputs() {
   const cats = getCats(), cat = String($("newCat") ? $("newCat").value : "").trim();
   const ct   = cats.includes(cat) ? cat : (cats[0] || "その他");
   const tr   = $("newTrigger") && $("newTrigger").value === "nights" ? "nights" : "days";
-  const fd   = normalizeIntOrNull(String($("newFreq").value ?? "").trim());
+  const fd   = normalizeIntOrNull($("newFreq").value);
   const bg   = clampColor(_newTaskBg,   "#0f0f0f");
   const text = clampColor(_newTaskText, "#f0f0f0");
   const tasks = loadTasks();
@@ -1150,6 +1148,8 @@ function setView(which) {
 function boot() {
   ensureDefaultTasks();
   $("date").value = todayISO();
+  attachNumericMirror($("nights"));
+  attachNumericMirror($("newFreq"));
   applyAppName(); renderStatus();
   renderTaskChips(); renderMaster(); renderReco(); renderHistory();
   // メモ文字色ピッカー初期値
@@ -1166,7 +1166,7 @@ bindIf("tabHistory", "click", () => setView("History"));
 bindIf("tabSetting", "click", () => setView("Setting"));
 
 bindIf("save", "click", () => {
-  const date = $("date").value || "", nights = normalizeNonNegativeIntOrNull(String($("nights").value ?? "").trim());
+  const date = $("date").value || "", nights = normalizeIntOrNull($("nights").value);
   const tasks = getSelectedTasks(), other = $("other").value || "";
   if (!date) { showAlert("確認","日付は必須"); return; }
   if (!tasks.length && !String(other).trim() && nights === null) return;

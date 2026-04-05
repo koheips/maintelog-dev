@@ -1,5 +1,5 @@
-/* maintelog sw v18d-dev-20260405-pwa-numeric-textfix */
-const CACHE_NAME = "maintelog-dev-20260405-pwa-numeric-textfix";
+/* maintelog sw v18d-dev-20260402 */
+const CACHE_NAME = "maintelog-dev-20260402";
 const CORE_ASSETS = [
   "./","./index.html","./app.js","./manifest.json",
   "./icon-192.png","./icon-512.png","./apple-touch-icon.png"
