@@ -8,7 +8,7 @@
    ・全体UIフラット化
 */
 
-const BUILD_ID = "v18d-dev-20260405-stage3";
+const BUILD_ID = "v18d-dev-20260405-stage5";
 console.info("[maintelog] build", BUILD_ID);
 
 /* ── カラーパレット（グリッド用） ── */
@@ -436,7 +436,11 @@ function renderReco() {
     return Number(b.over ?? 0) - Number(a.over ?? 0);
   });
 
-  if (!targets.length) { banner.style.display = "none"; return; }
+  if (!targets.length) {
+    list.innerHTML = "";
+    banner.style.display = "none";
+    return;
+  }
 
   list.innerHTML = "";
   targets.forEach(t => {
@@ -1077,7 +1081,16 @@ bindIf("save", "click", () => {
 bindIf("clear", "click", () => clearInput());
 bindIf("wipe",  "click", () => {
   showConfirm("確認","全データを削除します", () => {
-    saveRows([]); saveTasks(ensureDefaultTasks()); localStorage.removeItem(APPNAME_KEY); boot();
+    saveRows([]);
+    saveTasks(ensureDefaultTasks());
+    localStorage.removeItem(APPNAME_KEY);
+
+    const banner = $("recoBanner");
+    const list = $("recoList");
+    if (list) list.innerHTML = "";
+    if (banner) banner.style.display = "none";
+
+    boot();
   }, () => {});
 });
 bindIf("addTask", "click", () => addTaskFromInputs());
