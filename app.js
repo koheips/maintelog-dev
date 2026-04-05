@@ -8,7 +8,7 @@
    ・全体UIフラット化
 */
 
-const BUILD_ID = "v18d-dev-20260405-stage5";
+const BUILD_ID = "v18d-dev-20260405-stage9-native-small-horizontal";
 console.info("[maintelog] build", BUILD_ID);
 
 /* ── カラーパレット（グリッド用） ── */
@@ -153,71 +153,85 @@ function daysBetween(a, b) {
   return Number.isFinite(ms) ? Math.floor(ms / 86400000) : null;
 }
 
-/* ── カラーグリッドUI ── */
+/* ── ネイティブカラーピッカーUI ── */
 function createColorGrid(currentColor, onChange, opts) {
-  const wrap = document.createElement("div");
-  const grid = document.createElement("div");
-  grid.className = "color-grid";
+  const o = opts || {};
+  const size = Number(o.size) > 0 ? Number(o.size) : 34;
 
-  const swatches = [];
+  const wrap = document.createElement("div");
+  wrap.style.cssText = "display:flex;align-items:center;gap:8px;flex-wrap:nowrap;";
+
   let currentHex = clampColor(currentColor, "#0f0f0f").toLowerCase();
+
+  const holder = document.createElement("label");
+  holder.style.cssText = [
+    "position:relative",
+    `width:${size}px`,
+    `height:${size}px`,
+    "display:inline-flex",
+    "align-items:center",
+    "justify-content:center",
+    "border-radius:999px",
+    "overflow:hidden",
+    "cursor:pointer",
+    "touch-action:manipulation",
+    "-webkit-tap-highlight-color:transparent"
+  ].join(";");
+
+  const swatch = document.createElement("span");
+  swatch.setAttribute("aria-hidden", "true");
+  swatch.style.cssText = [
+    "position:absolute",
+    "inset:0",
+    "border-radius:999px",
+    "border:2px solid rgba(255,255,255,.35)",
+    "box-shadow:0 0 0 2px rgba(0,0,0,.55) inset",
+    `background:${currentHex}`,
+    "pointer-events:none"
+  ].join(";");
+
+  const nativeInput = document.createElement("input");
+  nativeInput.type = "color";
+  nativeInput.value = currentHex;
+  nativeInput.setAttribute("aria-label", "カラーを選択");
+  nativeInput.style.cssText = [
+    "position:absolute",
+    "inset:0",
+    "width:100%",
+    "height:100%",
+    "opacity:0.01",
+    "cursor:pointer",
+    "padding:0",
+    "margin:0",
+    "border:none",
+    "background:transparent",
+    "appearance:none",
+    "-webkit-appearance:none"
+  ].join(";");
 
   const updateSelected = (hex) => {
     currentHex = clampColor(hex, currentHex).toLowerCase();
-    swatches.forEach(sw => sw.classList.toggle("selected", sw.dataset.color === currentHex));
+    swatch.style.background = currentHex;
+    nativeInput.value = currentHex;
   };
 
-  const addSwatch = (hex) => {
-    const normalized = clampColor(hex, "#0f0f0f").toLowerCase();
-    const existing = swatches.find(sw => sw.dataset.color === normalized);
-    if (existing) return existing;
-    const sw = document.createElement("div");
-    sw.className = "color-swatch";
-    sw.dataset.color = normalized;
-    sw.style.background = normalized;
-    sw.addEventListener("click", () => {
-      updateSelected(normalized);
-      onChange(normalized);
-    });
-    swatches.push(sw);
-    return sw;
-  };
-
-  // パレットスウォッチ
-  COLOR_PALETTE.forEach(hex => {
-    const sw = addSwatch(hex);
-    grid.appendChild(sw);
+  nativeInput.addEventListener("input", () => {
+    const next = clampColor(nativeInput.value, currentHex).toLowerCase();
+    updateSelected(next);
+    onChange(next);
   });
-
-  // ＋ボタン：カスタム色をHex入力で追加（ネイティブピッカー不使用）
-  const customBtn = document.createElement("div");
-  customBtn.className = "color-swatch-custom";
-  customBtn.title = "カスタム色 (例: #ff0000)";
-  customBtn.textContent = "+";
-
-  // 現在値がパレット外でも選択状態が分かるように事前追加
-  if (!swatches.find(sw => sw.dataset.color === currentHex)) {
-    const sw = addSwatch(currentHex);
-    grid.appendChild(sw);
-  }
-
-  customBtn.addEventListener("click", () => {
-    const input = prompt("カラーコードを入力 (例: #ff0000)", currentHex);
-    if (!input) return;
-    const hex = input.trim().toLowerCase();
-    if (!/^#[0-9a-f]{6}$/.test(hex)) {
-      alert("正しい形式で入力してください (例: #ff0000)");
-      return;
-    }
-    const sw = addSwatch(hex);
-    if (!sw.parentNode) grid.insertBefore(sw, customBtn);
-    updateSelected(hex);
-    onChange(hex);
+  nativeInput.addEventListener("change", () => {
+    const next = clampColor(nativeInput.value, currentHex).toLowerCase();
+    updateSelected(next);
+    onChange(next);
   });
-  grid.appendChild(customBtn);
+  nativeInput.addEventListener("click", ev => ev.stopPropagation());
+  nativeInput.addEventListener("touchend", ev => ev.stopPropagation(), { passive:true });
+
   updateSelected(currentHex);
-
-  wrap.appendChild(grid);
+  holder.appendChild(swatch);
+  holder.appendChild(nativeInput);
+  wrap.appendChild(holder);
   return { el: wrap, update: updateSelected };
 }
 
@@ -951,18 +965,49 @@ function setupCollapse(btnId, bodyId) {
 let _newTaskBg   = "#0f0f0f";
 let _newTaskText = "#f0f0f0";
 
+function setupNewTaskColorLayout(bgArea, txArea) {
+  const section = bgArea && bgArea.parentElement;
+  if (!section || section.dataset.colorLayoutReady === "1") return;
+
+  const bgLabel = bgArea.previousElementSibling;
+  const txLabel = txArea.previousElementSibling;
+  if (!bgLabel || !txLabel) return;
+
+  const row = document.createElement("div");
+  row.style.cssText = "display:flex;align-items:center;justify-content:flex-start;gap:18px;flex-wrap:nowrap;";
+
+  const makeCell = (labelNode, areaNode) => {
+    const cell = document.createElement("div");
+    cell.style.cssText = "display:flex;align-items:center;gap:8px;min-width:0;flex:0 0 auto;";
+    labelNode.style.cssText = "font-size:11px;color:#8e8e93;margin:0;white-space:nowrap;";
+    areaNode.style.cssText = "display:flex;align-items:center;gap:8px;flex-wrap:nowrap;";
+    cell.appendChild(labelNode);
+    cell.appendChild(areaNode);
+    return cell;
+  };
+
+  section.innerHTML = "";
+  section.style.cssText = "padding:10px 16px 14px;border-top:0.5px solid var(--line);overflow-x:auto;";
+  row.appendChild(makeCell(bgLabel, bgArea));
+  row.appendChild(makeCell(txLabel, txArea));
+  section.appendChild(row);
+  section.dataset.colorLayoutReady = "1";
+}
+
 function setupNewTaskColorGrids() {
   const bgArea = document.getElementById("newBgGridArea");
   const txArea = document.getElementById("newTextGridArea");
   if (!bgArea || !txArea) return;
 
+  setupNewTaskColorLayout(bgArea, txArea);
+
   _newTaskBg   = "#0f0f0f";
   _newTaskText = "#f0f0f0";
 
-  const bgGrid = createColorGrid(_newTaskBg, hex => { _newTaskBg = hex; });
+  const bgGrid = createColorGrid(_newTaskBg, hex => { _newTaskBg = hex; }, { size:34 });
   bgArea.innerHTML = ""; bgArea.appendChild(bgGrid.el);
 
-  const txGrid = createColorGrid(_newTaskText, hex => { _newTaskText = hex; });
+  const txGrid = createColorGrid(_newTaskText, hex => { _newTaskText = hex; }, { size:34 });
   txArea.innerHTML = ""; txArea.appendChild(txGrid.el);
 
   window._bgGridReset = () => { _newTaskBg="#0f0f0f";   bgGrid.update("#0f0f0f"); };
